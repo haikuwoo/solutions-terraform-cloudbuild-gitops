@@ -20,21 +20,41 @@ locals {
 provider "google" {
   project = "${var.project}"
 }
-
-module "vpc" {
-  source  = "../../modules/vpc"
-  project = "${var.project}"
-  env     = "${local.env}"
+variable "notebook" {
+  default = {
+    "mwoo" = {
+      "user_name" = "mwoo",
+      "service_account" = "svc-mwoo"
+    },
+    "osolodilov" = {
+      "user_name" = "osolodilov",
+      "service_account" = "svc-osolodilov"
+    },
+    "jmerlin" = {
+      "user_name" = "jmerlin",
+      "service_account" = "svc-jmerlin"
+    }
+  }
 }
 
-module "http_server" {
-  source  = "../../modules/http_server"
-  project = "${var.project}"
-  subnet  = "${module.vpc.subnet}"
+
+resource "google_service_account" "service_account" {
+  for_each = var.notebook
+  account_id   = "${each.value.service_account}"
+  display_name = "${each.value.user_name} Service Account"
 }
 
-module "firewall" {
-  source  = "../../modules/firewall"
-  project = "${var.project}"
-  subnet  = "${module.vpc.subnet}"
+resource "google_notebooks_instance" "instance" {
+  for_each = var.notebook
+  name = "${each.value.user_name}-python3"
+  location = "us-west1-b"
+  machine_type = "n1-standard-1"
+  data_disk_type = "PD_STANDARD"
+  lifecycle {
+    ignore_changes = all
+  }
+  vm_image {
+    project      = "deeplearning-platform-release"
+    image_family = "common-cpu-notebooks"
+  }
 }
